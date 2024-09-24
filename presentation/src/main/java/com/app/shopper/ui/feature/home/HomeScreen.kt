@@ -1,8 +1,12 @@
 package com.app.shopper.ui.feature.home
 
 import android.R.bool
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +50,8 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.app.domain.model.Product
 import com.app.shopper.R
+import com.app.shopper.model.UIProductModel
+import com.app.shopper.navigation.ProductDetails
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -71,7 +78,7 @@ fun HomeScreen(navController: NavController,viewModel: HomeViewModel = koinViewM
 		mutableStateOf<List<Product>>(emptyList())
 	}
 
-	Scaffold {
+	Scaffold { it ->
 		Surface (modifier = Modifier
 			.fillMaxSize()
 			.padding(it)) {
@@ -102,6 +109,9 @@ fun HomeScreen(navController: NavController,viewModel: HomeViewModel = koinViewM
 				categories = categories.value,
 				isLoading = loading.value,
 				errorMsg = errorMsg.value,
+				onClick = {product ->
+					navController.navigate(ProductDetails(UIProductModel.fromProduct(product)))
+				}
 			)
 			
 		}
@@ -115,6 +125,7 @@ fun HomeContent(
 	categories: List<String>,
 	isLoading: Boolean = false,
 	errorMsg: String? = null,
+	onClick: (Product)-> Unit
 ) {
 	LazyColumn {
 		item {
@@ -152,27 +163,36 @@ fun HomeContent(
 
 			if (categories.isNotEmpty()) {
 				LazyRow {
-					items(categories) { category ->
-						Text(
-							text = category.apply { replaceFirstChar { it.uppercaseChar() } },
-							style = MaterialTheme.typography.bodyMedium,
-							color = MaterialTheme.colorScheme.onPrimary,
-							modifier = Modifier
-								.padding(horizontal = 8.dp)
-								.clip(RoundedCornerShape(8.dp))
-								.background(MaterialTheme.colorScheme.primary)
-								.padding(vertical = 8.dp, horizontal = 16.dp)
-						)
+					items(categories, key = {it}) { category ->
+
+						val isVisible = remember {
+							mutableStateOf(false)
+						}
+						LaunchedEffect(true) {
+							isVisible.value = true
+						}
+						AnimatedVisibility(visible = isVisible.value, enter = fadeIn() + expandVertically()) {
+							Text(
+								text = category.apply { replaceFirstChar { it.uppercaseChar() } },
+								style = MaterialTheme.typography.bodyMedium,
+								color = MaterialTheme.colorScheme.onPrimary,
+								modifier = Modifier
+									.padding(horizontal = 8.dp)
+									.clip(RoundedCornerShape(8.dp))
+									.background(MaterialTheme.colorScheme.primary)
+									.padding(vertical = 8.dp, horizontal = 16.dp)
+							)
+						}
 					}
 				}
 				Spacer(modifier = Modifier.size(24.dp))
 			}
 			if (featured.isNotEmpty()) {
-				HomeProductRow(product = featured, title = "Featured")
+				HomeProductRow(product = featured, title = "Featured", onClick = onClick)
 				Spacer(modifier = Modifier.size(24.dp))
 			}
 			if (popularProducts.isNotEmpty()) {
-				HomeProductRow(product = popularProducts, title = "Popular Products")
+				HomeProductRow(product = popularProducts, title = "Popular Products", onClick = onClick)
 				Spacer(modifier = Modifier.size(24.dp))
 			}
 		}
@@ -255,7 +275,7 @@ fun SearchBar(value: String, onChange: (String) -> Unit) {
 }
 
 @Composable
-fun HomeProductRow(product: List<Product>, title: String) {
+fun HomeProductRow(product: List<Product>, title: String, onClick: (Product)-> Unit) {
 	Column {
 		Box (modifier = Modifier
 			.padding(vertical = 24.dp, horizontal = 8.dp)
@@ -274,8 +294,16 @@ fun HomeProductRow(product: List<Product>, title: String) {
 			)
 		}
 		LazyRow {
-			items(product){ product ->
-				ProductItem(product = product)
+			items(product, key = {it.id}){ product ->
+				val isVisible = remember {
+					mutableStateOf(false)
+				}
+				LaunchedEffect(true) {
+					isVisible.value = true
+				}
+				AnimatedVisibility(visible = isVisible.value, enter = fadeIn() + expandVertically()) {
+					ProductItem(product = product, onClick = onClick)
+				}
 			}
 		}
 	}
@@ -283,14 +311,16 @@ fun HomeProductRow(product: List<Product>, title: String) {
 }
 
 @Composable
-fun ProductItem(product: Product) {
+fun ProductItem(product: Product, onClick: (Product)-> Unit) {
 	Card(
 		modifier = Modifier
 			.padding(horizontal = 8.dp)
 			.size(
 				width = 126.dp,
 				height = 164.dp,
-			),
+			).clickable {
+				onClick(product)
+			},
 		shape = RoundedCornerShape(16.dp),
 		colors = CardDefaults.cardColors(containerColor = Color.LightGray.copy(alpha = 0.3f)),
 	) {
@@ -303,7 +333,7 @@ fun ProductItem(product: Product) {
 					.height(96.dp),
 				placeholder = painterResource(id = R.drawable.no_data),
 				error = painterResource(id = R.drawable.no_data),
-				contentScale = ContentScale.Crop,
+				contentScale = ContentScale.Inside,
 			)
 			Spacer(modifier = Modifier.padding(8.dp))
 			Text(

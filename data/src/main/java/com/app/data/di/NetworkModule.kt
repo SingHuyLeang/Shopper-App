@@ -24,6 +24,11 @@ val networkModule = module {
 			}
 			install(Logging) {
 				level = LogLevel.ALL
+				logger = object : Logger {
+					override fun log(message: String) {
+						println("BACK-END HANDLE : $message")
+					}
+				}
 			}
 		}
 	}

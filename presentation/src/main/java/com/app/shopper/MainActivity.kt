@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +18,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,8 +31,18 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
+import com.app.domain.model.Product
+import com.app.shopper.model.UIProductModel
+import com.app.shopper.navigation.CartScreen
+import com.app.shopper.navigation.HomeScreen
+import com.app.shopper.navigation.ProductDetails
+import com.app.shopper.navigation.ProfileScreen
+import com.app.shopper.navigation.productNavType
 import com.app.shopper.ui.feature.home.HomeScreen
+import com.app.shopper.ui.feature.product_detail.ProductDetailScreen
 import com.app.shopper.ui.theme.ShopperTheme
+import kotlin.reflect.typeOf
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,37 +50,52 @@ class MainActivity : ComponentActivity() {
 		enableEdgeToEdge()
 		setContent {
 			ShopperTheme {
+				val showBottomNavBar = remember{
+					mutableStateOf(true)
+				}
 				val navController = rememberNavController()
 				Scaffold (
 					modifier = Modifier.fillMaxSize(),
 					bottomBar = {
-						BottomNavigationBar(navController = navController)
+						AnimatedVisibility(visible = showBottomNavBar.value, enter = fadeIn()) {
+							BottomNavigationBar(navController = navController)
+						}
 					}
-				) {
+				) { pv ->
 					Surface (
 						modifier = Modifier
 							.fillMaxSize()
-							.padding(it)
+							.padding(pv)
 					) {
-						NavHost(navController = navController, startDestination = "home") {
-							composable ("home") {
+						NavHost(navController = navController, startDestination = HomeScreen) {
+							composable <HomeScreen> {
 								HomeScreen(navController)
+								showBottomNavBar.value = true
 							}
-							composable ("cart") {
+							composable <CartScreen> {
 								Box (
 									modifier = Modifier.fillMaxSize(),
 									contentAlignment = Alignment.Center,
 								) {
 									Text(text = "Cart", style = MaterialTheme.typography.bodyMedium)
 								}
+								showBottomNavBar.value = true
 							}
-							composable ("profile") {
+							composable <ProfileScreen> {
 								Box (
 									modifier = Modifier.fillMaxSize(),
 									contentAlignment = Alignment.Center,
 								) {
 									Text(text = "Profile", style = MaterialTheme.typography.bodyMedium)
 								}
+								showBottomNavBar.value = true
+							}
+							composable <ProductDetails> (
+								typeMap = mapOf(typeOf<UIProductModel>() to productNavType)
+							) {
+								val productRoute = it.toRoute<ProductDetails>()
+								ProductDetailScreen(navController = navController, product = productRoute.product)
+								showBottomNavBar.value = false
 							}
 						}
 					}
@@ -88,8 +117,11 @@ fun BottomNavigationBar(navController: NavController){
 		)
 
 		items.forEach {item ->
+
+			val isSelected = currentRoute?.substringBefore("?") == item.route::class.qualifiedName
+
 			NavigationBarItem(
-				selected = currentRoute == item.route,
+				selected = isSelected,
 				onClick = {
 					navController.navigate(item.route) {
 						navController.graph.startDestinationRoute?.let {startRoute ->
@@ -107,7 +139,7 @@ fun BottomNavigationBar(navController: NavController){
 						painter = painterResource(id = item.icon),
 						contentDescription = item.title,
 						colorFilter = ColorFilter.tint(
-							if (currentRoute == item.route)
+							if (isSelected)
 								MaterialTheme.colorScheme.primary
 							else
 								Color.Gray
@@ -126,9 +158,9 @@ fun BottomNavigationBar(navController: NavController){
 	}
 }
 
-sealed class BottomNavItem(val route: String, val title: String, val icon: Int) {
-	data object Home: BottomNavItem(route = "home", title = "Home", icon = R.drawable.ic_home)
-	data object Cart: BottomNavItem(route = "cart",title = "Home",icon = R.drawable.ic_cart)
-	data object Profile: BottomNavItem(route = "profile",title = "Profile",icon = R.drawable.ic_profile)
+sealed class BottomNavItem(val route: Any, val title: String, val icon: Int) {
+	data object Home: BottomNavItem(route = HomeScreen, title = "Home", icon = R.drawable.ic_home)
+	data object Cart: BottomNavItem(route = CartScreen,title = "Cart",icon = R.drawable.ic_cart)
+	data object Profile: BottomNavItem(route = ProfileScreen,title = "Profile",icon = R.drawable.ic_profile)
 //	data object Home: BottomNavItem(route = "home","Home")
 }
